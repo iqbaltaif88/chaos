@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>ChaosPendulum Art</title>
+    <style>
+        :root {
+            --bg: #05050a;
+            --panel: #0d0d1a;
+            --accent: #00ffcc;
+            --accent2: #ff3366;
+            --text: #f0f0f5;
+            --muted: #5a5a7a;
+            --border: rgba(0, 255, 204, 0.08);
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+        }
+
+        /* ── Layout Shell ── */
+        #app {
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            height: 100dvh;
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 12px 12px 8px;
+            gap: 10px;
+        }
+
+        /* ── Header ── */
+        header {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        header h1 {
+            font-size: clamp(1rem, 3vw, 1.5rem);
+            font-weight: 800;
+            letter-spacing: 3px;
+            color: var(--accent);
+            text-shadow: 0 0 18px rgba(0,255,204,0.4);
+            white-space: nowrap;
+        }
+
+        header p {
+            font-size: clamp(0.65rem, 1.8vw, 0.78rem);
+            color: var(--muted);
+            letter-spacing: 0.5px;
+        }
+
+        /* ── Canvas Area ── */
+        .canvas-wrap {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #trailCanvas  { z-index: 1; }
+        #pendulumCanvas { z-index: 2; touch-action: none; cursor: crosshair; }
+
+        /* ── Controls ── */
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px 18px;
+            align-items: flex-end;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 14px;
+        }
+
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1 1 120px;
+            min-width: 100px;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--muted);
+        }
+
+        .slider-label span {
+            color: var(--accent);
+            font-variant-numeric: tabular-nums;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 3px;
+            background: #1a1a2e;
+            border-radius: 2px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            box-shadow: 0 0 8px var(--accent);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 13px;
+            height: 13px;
+            border: none;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            box-shadow: 0 0 8px var(--accent);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            flex: 1 1 auto;
+            justify-content: flex-end;
+            align-items: flex-end;
+        }
+
+        button {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--accent);
+            padding: 7px 13px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: clamp(0.68rem, 1.8vw, 0.8rem);
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            transition: background 0.2s, box-shadow 0.2s, color 0.2s;
+            white-space: nowrap;
+        }
+
+        button:hover, button:focus-visible {
+            background: var(--accent);
+            color: var(--bg);
+            box-shadow: 0 0 14px var(--accent);
+            outline: none;
+        }
+
+        #btnReset {
+            border-color: var(--accent2);
+        }
+
+        #btnReset:hover, #btnReset:focus-visible {
+            background: var(--accent2);
+            color: var(--text);
+            box-shadow: 0 0 14px var(--accent2);
+        }
+
+        /* ── Tip label overlay ── */
+        #tip {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.65rem;
+            color: rgba(255,255,255,0.2);
+            pointer-events: none;
+            white-space: nowrap;
+            letter-spacing: 0.5px;
+        }
+
+        /* ── Mobile tweaks ── */
+        @media (max-width: 480px) {
+            #app { padding: 8px 8px 6px; gap: 7px; }
+            .controls { padding: 8px 10px; gap: 8px 12px; }
+            .slider-group { flex-basis: 85px; }
+            button { padding: 6px 10px; }
+        }
+
+        @media (max-height: 600px) {
+            header p { display: none; }
+            #app { gap: 6px; padding: 6px; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <header>
+        <h1>CHAOS PENDULUM</h1>
+        <p>Double Pendulum Generative Art &amp; Chaos Theory Simulator</p>
+    </header>
+
+    <div class="canvas-wrap">
+        <canvas id="trailCanvas"></canvas>
+        <canvas id="pendulumCanvas"></canvas>
+        <div id="tip">drag to reposition · watch the butterfly effect</div>
+    </div>
+
+    <div class="controls">
+        <div class="slider-group">
+            <div class="slider-label">Rod 1 Length <span id="valL1">120</span></div>
+            <input type="range" id="length1" min="50" max="200" value="120">
+        </div>
+        <div class="slider-group">
+            <div class="slider-label">Rod 2 Length <span id="valL2">120</span></div>
+            <input type="range" id="length2" min="50" max="200" value="120">
+        </div>
+        <div class="slider-group">
+            <div class="slider-label">Gravity <span id="valG">1.0</span></div>
+            <input type="range" id="gravity" min="0" max="4" step="0.1" value="1">
+        </div>
+        <div class="btn-group">
+            <button id="btnColor">Color Mode</button>
+            <button id="btnClear">Clear</button>
+            <button id="btnReset">Reset Chaos</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const trailCanvas = document.getElementById('trailCanvas');
+    const tCtx        = trailCanvas.getContext('2d');
+    const penCanvas   = document.getElementById('pendulumCanvas');
+    const pCtx        = penCanvas.getContext('2d');
+
+    let W, H, cx, cy;
+
+    function resize() {
+        W = penCanvas.clientWidth;
+        H = penCanvas.clientHeight;
+        [trailCanvas.width, penCanvas.width]   = [W, W];
+        [trailCanvas.height, penCanvas.height] = [H, H];
+        cx = W / 2;
+        cy = H * 0.38;
+        clearArt();
+    }
+
+    // ── Physics state ──
+    let r1 = 120, r2 = 120;
+    const m1 = 10, m2 = 10;
+    let a1 = Math.PI / 2, a2 = Math.PI / 2;
+    let a1v = 0, a2v = 0;
+    let g = 1.0;
+    let px2 = -1, py2 = -1;
+    let hue = 0;
+    let colorMode = 'rainbow';
+    let isDragging = false;
+
+    // ── Sliders ──
+    function bindSlider(id, valId, assign, digits = 0) {
+        const el = document.getElementById(id);
+        const vl = document.getElementById(valId);
+        el.addEventListener('input', () => {
+            assign(parseFloat(el.value));
+            vl.innerText = parseFloat(el.value).toFixed(digits);
+            px2 = py2 = -1;
+        });
+    }
+    bindSlider('length1', 'valL1', v => r1 = v);
+    bindSlider('length2', 'valL2', v => r2 = v);
+    bindSlider('gravity', 'valG',  v => g  = v, 1);
+
+    document.getElementById('btnClear').addEventListener('click', clearArt);
+    document.getElementById('btnReset').addEventListener('click', resetChaos);
+    document.getElementById('btnColor').addEventListener('click', () => {
+        colorMode = colorMode === 'rainbow' ? 'neon' : 'rainbow';
+    });
+
+    function clearArt() {
+        tCtx.fillStyle = '#000';
+        tCtx.fillRect(0, 0, W, H);
+        px2 = py2 = -1;
+    }
+
+    function resetChaos() {
+        a1  = Math.PI / 2 + (Math.random() * 0.1 - 0.05);
+        a2  = Math.PI / 2 + (Math.random() * 0.1 - 0.05);
+        a1v = a2v = 0;
+        px2 = py2 = -1;
+    }
+
+    // ── Pointer drag (mouse + touch) ──
+    function getPos(e) {
+        const rect = penCanvas.getBoundingClientRect();
+        const src  = e.touches ? e.touches[0] : e;
+        return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+    }
+
+    function onDragMove(e) {
+        if (!isDragging) return;
+        e.preventDefault();
+        const { x, y } = getPos(e);
+        a1  = Math.atan2(x - cx, y - cy);
+        const x1 = cx + r1 * Math.sin(a1);
+        const y1 = cy + r1 * Math.cos(a1);
+        a2  = Math.atan2(x - x1, y - y1);
+        a1v = a2v = 0;
+    }
+
+    penCanvas.addEventListener('mousedown',  () => isDragging = true);
+    window.addEventListener  ('mouseup',     () => { isDragging = false; px2 = py2 = -1; });
+    penCanvas.addEventListener('mousemove',  onDragMove);
+
+    penCanvas.addEventListener('touchstart', e => { isDragging = true; e.preventDefault(); }, { passive: false });
+    window.addEventListener  ('touchend',   () => { isDragging = false; px2 = py2 = -1; });
+    penCanvas.addEventListener('touchmove',  onDragMove, { passive: false });
+
+    // ── Equations of motion (Lagrangian) ──
+    function derivatives(t1, t2, w1, w2) {
+        const d = t1 - t2;
+        const D = 2 * m1 + m2 - m2 * Math.cos(2 * d);
+
+        const a1a = (-g * (2*m1+m2) * Math.sin(t1)
+                    - m2 * g * Math.sin(t1 - 2*t2)
+                    - 2 * Math.sin(d) * m2 * (w2*w2*r2 + w1*w1*r1*Math.cos(d)))
+                   / (r1 * D);
+
+        const a2a = (2 * Math.sin(d) * (w1*w1*r1*(m1+m2) + g*(m1+m2)*Math.cos(t1) + w2*w2*r2*m2*Math.cos(d)))
+                   / (r2 * D);
+
+        return [w1, a1a, w2, a2a];
+    }
+
+    // ── RK4 integration ──
+    function stepRK4() {
+        const dt = 0.1;
+        const [k1v1,k1a1,k1v2,k1a2] = derivatives(a1, a2, a1v, a2v);
+        const [k2v1,k2a1,k2v2,k2a2] = derivatives(
+            a1 + .5*dt*k1v1, a2 + .5*dt*k1v2,
+            a1v+ .5*dt*k1a1, a2v+ .5*dt*k1a2);
+        const [k3v1,k3a1,k3v2,k3a2] = derivatives(
+            a1 + .5*dt*k2v1, a2 + .5*dt*k2v2,
+            a1v+ .5*dt*k2a1, a2v+ .5*dt*k2a2);
+        const [k4v1,k4a1,k4v2,k4a2] = derivatives(
+            a1 + dt*k3v1, a2 + dt*k3v2,
+            a1v+ dt*k3a1, a2v+ dt*k3a2);
+
+        const f = dt / 6;
+        a1  += f * (k1v1 + 2*k2v1 + 2*k3v1 + k4v1);
+        a1v += f * (k1a1 + 2*k2a1 + 2*k3a1 + k4a1);
+        a2  += f * (k1v2 + 2*k2v2 + 2*k3v2 + k4v2);
+        a2v += f * (k1a2 + 2*k2a2 + 2*k3a2 + k4a2);
+    }
+
+    // ── Main loop ──
+    function loop() {
+        if (!isDragging) {
+            stepRK4(); stepRK4(); stepRK4();
+        }
+
+        const x1 = cx + r1 * Math.sin(a1);
+        const y1 = cy + r1 * Math.cos(a1);
+        const x2 = x1 + r2 * Math.sin(a2);
+        const y2 = y1 + r2 * Math.cos(a2);
+
+        // Trail
+        if (px2 !== -1 && !isDragging) {
+            const speed = Math.hypot(x2 - px2, y2 - py2);
+            tCtx.beginPath();
+            tCtx.moveTo(px2, py2);
+            tCtx.lineTo(x2, y2);
+            tCtx.strokeStyle = colorMode === 'rainbow'
+                ? `hsl(${hue},100%,55%)`
+                : `hsl(${200 + Math.sin(hue * 0.015) * 50},100%,62%)`;
+            tCtx.lineWidth = Math.max(0.5, Math.min(3.5, 7 / (speed + 0.5)));
+            tCtx.stroke();
+        }
+        px2 = x2; py2 = y2;
+        hue = (hue + 0.5) % 360;
+
+        // Pendulum structure
+        pCtx.clearRect(0, 0, W, H);
+
+        // Pivot point
+        pCtx.fillStyle = '#ffffff22';
+        pCtx.beginPath();
+        pCtx.arc(cx, cy, 5, 0, Math.PI * 2);
+        pCtx.fill();
+
+        // Rods
+        pCtx.strokeStyle = 'rgba(255,255,255,0.18)';
+        pCtx.lineWidth = 3;
+        pCtx.beginPath(); pCtx.moveTo(cx, cy); pCtx.lineTo(x1, y1); pCtx.stroke();
+        pCtx.beginPath(); pCtx.moveTo(x1, y1); pCtx.lineTo(x2, y2); pCtx.stroke();
+
+        // Bob 1
+        pCtx.fillStyle = '#00ffcc';
+        pCtx.shadowBlur = 12; pCtx.shadowColor = '#00ffcc';
+        pCtx.beginPath(); pCtx.arc(x1, y1, 6, 0, Math.PI * 2); pCtx.fill();
+
+        // Bob 2
+        const tipColor = colorMode === 'rainbow' ? `hsl(${hue},100%,55%)` : '#ff3366';
+        pCtx.fillStyle = tipColor;
+        pCtx.shadowColor = tipColor;
+        pCtx.shadowBlur = 16;
+        pCtx.beginPath(); pCtx.arc(x2, y2, 5, 0, Math.PI * 2); pCtx.fill();
+        pCtx.shadowBlur = 0;
+
+        requestAnimationFrame(loop);
+    }
+
+    const ro = new ResizeObserver(resize);
+    ro.observe(document.querySelector('.canvas-wrap'));
+    resize();
+    loop();
+</script>
+</body>
+</html>
